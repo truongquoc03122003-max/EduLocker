@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F0FDF4"/>
+      <stop offset="100%" stop-color="#DCFCE7"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="480" fill="url(#bg)"/>
+  <circle cx="560" cy="70" r="110" fill="#FFFFFF" fill-opacity="0.5"/>
+  <circle cx="70" cy="400" r="130" fill="#FFFFFF" fill-opacity="0.5"/>
+  <rect x="28" y="24" width="200" height="36" rx="18" fill="#FFFFFF" stroke="#15803D" stroke-width="1.5"/>
+  <text x="128" y="47" font-family="sans-serif" font-size="13" font-weight="700" fill="#15803D" text-anchor="middle">Linh kiện thực hành</text>
+  <rect x="444" y="24" width="168" height="36" rx="18" fill="#102A56"/>
+  <text x="528" y="47" font-family="sans-serif" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle">EduLocker • ĐH Cần Thơ</text>
+  
+        <g transform="translate(170, 95)">
+          <rect x="0" y="0" width="300" height="210" rx="18" fill="#FFFFFF" stroke="#16A34A" stroke-width="4"/>
+          <line x1="24" y1="30" x2="276" y2="30" stroke="#EF4444" stroke-width="3"/>
+          <line x1="24" y1="42" x2="276" y2="42" stroke="#2563EB" stroke-width="3"/>
+          <rect x="24" y="96" width="252" height="18" rx="4" fill="#E2E8F0"/>
+          <rect x="108" y="78" width="84" height="54" rx="6" fill="#1E293B"/>
+          <text x="150" y="110" font-family="monospace" font-size="13" font-weight="700" fill="#38BDF8" text-anchor="middle">ESP32 / IC</text>
+          <path d="M55 68 C75 20, 125 20, 130 78" stroke="#F59E0B" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <path d="M180 132 C200 180, 240 175, 250 140" stroke="#16A34A" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <line x1="24" y1="168" x2="276" y2="168" stroke="#EF4444" stroke-width="3"/>
+          <line x1="24" y1="180" x2="276" y2="180" stroke="#2563EB" stroke-width="3"/>
+        </g>
+  <rect x="28" y="374" width="584" height="82" rx="16" fill="#FFFFFF" fill-opacity="0.95"/>
+  <text x="48" y="408" font-family="sans-serif" font-size="21" font-weight="800" fill="#102A56">COMBO BREADBOARD 830 LỖ</text>
+  <text x="48" y="436" font-family="sans-serif" font-size="14" font-weight="500" fill="#475569">Kèm 65 dây cắm Jump & module nguồn MB102</text>
+</svg>
