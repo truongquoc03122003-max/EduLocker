@@ -234,7 +234,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public, extensions
-as $
+as $heartbeat$
 declare
   v_compartment_id text;
   v_device public.locker_devices%rowtype;
@@ -270,7 +270,7 @@ begin
 
   return new;
 end;
-$;
+$heartbeat$;
 
 drop trigger if exists trg_order_events_require_online_hardware on public.order_events;
 create trigger trg_order_events_require_online_hardware
