@@ -11,6 +11,8 @@ import {
   adminSetUserStatusAction,
   adminToggleCompartmentMaintenanceAction,
   adminToggleReviewVisibilityAction,
+  adminRegisterLockerDeviceAction,
+  adminQueueLockerCommandAction,
 } from "@/features/admin/admin-actions";
 
 export function AdminPagination({
@@ -341,3 +343,112 @@ export function AdminReviewVisibilityButton({
   );
 }
 
+
+
+export function AdminLockerHardwareControls({
+  compartmentId,
+  compartmentCode,
+}: {
+  compartmentId: string;
+  compartmentCode: string;
+}) {
+  const [deviceId, setDeviceId] = useState(`EDULOCKER-${compartmentCode}`);
+  const [deviceSecret, setDeviceSecret] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const pairDevice = () => {
+    setMessage(null);
+    setDeviceSecret(null);
+    startTransition(async () => {
+      const res = await adminRegisterLockerDeviceAction(
+        compartmentId,
+        deviceId,
+        `EduLocker ${compartmentCode}`,
+      );
+      if (!res.success) {
+        setMessage(res.error ?? "Không thể ghép ESP32.");
+        return;
+      }
+      setDeviceSecret(res.deviceSecret ?? null);
+      setMessage(
+        "Ghép thiết bị thành công. Hãy chép Device ID và Device Secret vào firmware ESP32.",
+      );
+    });
+  };
+
+  const sendCommand = (action: "OPEN" | "CLOSE") => {
+    setMessage(null);
+    startTransition(async () => {
+      const res = await adminQueueLockerCommandAction(compartmentId, action);
+      if (!res.success) {
+        setMessage(res.error ?? "Không thể gửi lệnh.");
+        return;
+      }
+      setMessage(
+        action === "OPEN"
+          ? "Đã gửi lệnh mở. ESP32 sẽ nhận ở lần poll kế tiếp."
+          : "Đã gửi lệnh đóng. ESP32 sẽ nhận ở lần poll kế tiếp.",
+      );
+    });
+  };
+
+  return (
+    <div className="mt-3 space-y-2 rounded-xl border border-dashed border-brand-blue/30 bg-white p-3">
+      <p className="text-[11px] font-bold text-brand-navy">
+        ESP32 vật lý • {compartmentCode}
+      </p>
+      <input
+        type="text"
+        value={deviceId}
+        onChange={(e) => setDeviceId(e.target.value.toUpperCase())}
+        placeholder="Device ID, ví dụ EDULOCKER-A01"
+        className="h-8 w-full rounded-lg border border-slate-200 px-2.5 font-mono text-[11px]"
+        disabled={isPending}
+      />
+      <div className="flex flex-wrap gap-1.5">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={isPending || deviceId.trim().length < 3}
+          onClick={pairDevice}
+        >
+          Ghép / đổi mã ESP32
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          disabled={isPending}
+          onClick={() => sendCommand("OPEN")}
+        >
+          Test mở tủ
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={isPending}
+          onClick={() => sendCommand("CLOSE")}
+        >
+          Test đóng tủ
+        </Button>
+      </div>
+
+      {deviceSecret && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[10px] text-amber-900">
+          <p className="font-bold">
+            Device Secret chỉ hiển thị lần này — đừng commit lên GitHub:
+          </p>
+          <code className="mt-1 block break-all select-all font-mono">
+            {deviceSecret}
+          </code>
+        </div>
+      )}
+
+      {message && (
+        <p className="text-[10px] leading-relaxed text-slate-600">{message}</p>
+      )}
+    </div>
+  );
+}

@@ -1,6 +1,9 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { AdminLockerMaintenanceButton } from "@/components/admin/admin-actions-clients";
+import {
+  AdminLockerHardwareControls,
+  AdminLockerMaintenanceButton,
+} from "@/components/admin/admin-actions-clients";
 import { fetchAdminLockers } from "@/features/admin/admin-repository";
 
 export const dynamic = "force-dynamic";
@@ -18,9 +21,10 @@ export default async function AdminLockersPage() {
           Quản trị Smart Locker Simulator
         </h2>
         <p className="mt-1 text-xs text-slate-500">
-          Chuyển trạng thái ngăn tủ giữa <code>AVAILABLE</code> và{" "}
-          <code>MAINTENANCE</code>. Hệ thống chặn đặt bảo trì nếu ngăn đang giữ
-          chỗ (<code>RESERVED</code>) hoặc đang chứa hàng (<code>OCCUPIED</code>).
+          Quản lý simulator và ghép ESP32 vật lý cho từng ngăn. Hệ thống chặn
+          đặt bảo trì nếu ngăn đang giữ chỗ (<code>RESERVED</code>) hoặc đang
+          chứa hàng (<code>OCCUPIED</code>). Với ngăn đã ghép ESP32, lệnh mở
+          được gửi qua hàng đợi bảo mật sau khi OTP hợp lệ.
         </p>
       </div>
 
@@ -66,10 +70,16 @@ export default async function AdminLockersPage() {
                       </p>
                     )}
                   </div>
-                  <AdminLockerMaintenanceButton
-                    compartmentId={comp.id}
-                    status={comp.status}
-                  />
+                  <div className="min-w-[250px]">
+                    <AdminLockerMaintenanceButton
+                      compartmentId={comp.id}
+                      status={comp.status}
+                    />
+                    <AdminLockerHardwareControls
+                      compartmentId={comp.id}
+                      compartmentCode={comp.code}
+                    />
+                  </div>
                 </div>
               );
             })}
