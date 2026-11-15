@@ -221,6 +221,65 @@ execute function public.trg_queue_locker_hardware_from_order_event();
 
 revoke all on function public.trg_queue_locker_hardware_from_order_event() from public, anon, authenticated;
 
+
+
+-- -----------------------------------------------------------------------------
+-- 4A. REQUIRE A RECENT DEVICE HEARTBEAT BEFORE A PHYSICAL OPEN FLOW
+--     Because this trigger runs inside the existing RPC transaction, raising here
+--     rolls back OTP consumption / order state changes when paired hardware is offline.
+--     Compartments without a paired device keep simulator behavior unchanged.
+-- -----------------------------------------------------------------------------
+create or replace function public.trg_require_online_locker_hardware()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, extensions
+as $
+declare
+  v_compartment_id text;
+  v_device public.locker_devices%rowtype;
+begin
+  if new.event_type not in ('ITEM_DROPPED_OFF', 'LOCKER_UNLOCKED') then
+    return new;
+  end if;
+
+  select o.locker_compartment_id into v_compartment_id
+  from public.orders o
+  where o.id = new.order_id;
+
+  if v_compartment_id is null then
+    return new;
+  end if;
+
+  select d.* into v_device
+  from public.locker_devices d
+  where d.compartment_id = v_compartment_id
+    and d.enabled = true
+  limit 1;
+
+  -- No paired hardware => simulator-only compartment.
+  if not found then
+    return new;
+  end if;
+
+  if v_device.last_seen_at is null
+     or v_device.last_seen_at < timezone('utc', now()) - interval '15 seconds' then
+    raise exception 'Smart Locker vật lý đang ngoại tuyến. Vui lòng kiểm tra nguồn/Wi-Fi của ESP32 rồi thử lại.'
+      using errcode = 'P0001';
+  end if;
+
+  return new;
+end;
+$;
+
+drop trigger if exists trg_order_events_require_online_hardware on public.order_events;
+create trigger trg_order_events_require_online_hardware
+before insert on public.order_events
+for each row
+execute function public.trg_require_online_locker_hardware();
+
+revoke all on function public.trg_require_online_locker_hardware() from public, anon, authenticated;
+
 -- -----------------------------------------------------------------------------
 -- 5. ADMIN RPC: PAIR / ROTATE A DEVICE SECRET
 --    The plaintext device_secret is returned ONCE and is never stored.
