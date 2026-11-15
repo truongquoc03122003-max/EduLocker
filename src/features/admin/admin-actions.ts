@@ -199,3 +199,130 @@ export async function adminToggleReviewVisibilityAction(
   return { success: true };
 }
 
+
+
+export async function adminRegisterLockerDeviceAction(
+  compartmentId: string,
+  deviceId: string,
+  label?: string,
+): Promise<{
+  success: boolean;
+  error?: string;
+  deviceId?: string;
+  compartmentId?: string;
+  deviceSecret?: string;
+}> {
+  const admin = await requireActiveAdmin();
+  if (!admin) {
+    return {
+      success: false,
+      error: "Chỉ quản trị viên đang hoạt động mới có quyền này (403).",
+    };
+  }
+
+  const cleanDeviceId = deviceId.trim().toUpperCase();
+  if (!/^[A-Z0-9_-]{3,64}$/.test(cleanDeviceId)) {
+    return {
+      success: false,
+      error: "Device ID chỉ được dùng A-Z, 0-9, dấu - hoặc _ (3–64 ký tự).",
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { success: false, error: "Chưa cấu hình Supabase." };
+
+  const { data, error } = await supabase.rpc(
+    "rpc_admin_register_locker_device",
+    {
+      p_device_id: cleanDeviceId,
+      p_compartment_id: compartmentId,
+      p_label: label?.trim() || null,
+    },
+  );
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  const payload =
+    data && typeof data === "object" && !Array.isArray(data)
+      ? (data as Record<string, unknown>)
+      : null;
+
+  const deviceSecret =
+    typeof payload?.device_secret === "string"
+      ? payload.device_secret
+      : undefined;
+
+  if (!deviceSecret) {
+    return {
+      success: false,
+      error: "Supabase không trả về device secret. Vui lòng thử ghép lại.",
+    };
+  }
+
+  revalidatePath("/admin/lockers");
+
+  return {
+    success: true,
+    deviceId:
+      typeof payload?.device_id === "string"
+        ? payload.device_id
+        : cleanDeviceId,
+    compartmentId:
+      typeof payload?.compartment_id === "string"
+        ? payload.compartment_id
+        : compartmentId,
+    deviceSecret,
+  };
+}
+
+export async function adminQueueLockerCommandAction(
+  compartmentId: string,
+  action: "OPEN" | "CLOSE" = "OPEN",
+): Promise<{ success: boolean; error?: string; commandId?: string }> {
+  const admin = await requireActiveAdmin();
+  if (!admin) {
+    return {
+      success: false,
+      error: "Chỉ quản trị viên đang hoạt động mới có quyền này (403).",
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { success: false, error: "Chưa cấu hình Supabase." };
+
+  const { data, error } = await supabase.rpc("rpc_admin_queue_locker_command", {
+    p_compartment_id: compartmentId,
+    p_action: action,
+  });
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  const payload =
+    data && typeof data === "object" && !Array.isArray(data)
+      ? (data as Record<string, unknown>)
+      : null;
+
+  if (payload?.success !== true) {
+    return {
+      success: false,
+      error:
+        typeof payload?.message === "string"
+          ? payload.message
+          : "Không thể gửi lệnh tới ESP32.",
+    };
+  }
+
+  revalidatePath("/admin/lockers");
+
+  return {
+    success: true,
+    commandId:
+      typeof payload?.command_id === "string"
+        ? payload.command_id
+        : undefined,
+  };
+}
