@@ -1273,6 +1273,39 @@ export type Database = {
         Args: { p_review_id: string; p_is_hidden: boolean };
         Returns: Json;
       };
+      rpc_admin_register_locker_device: {
+        Args: {
+          p_device_id: string;
+          p_compartment_id: string;
+          p_label?: string | null;
+        };
+        Returns: Json;
+      };
+      rpc_admin_queue_locker_command: {
+        Args: {
+          p_compartment_id: string;
+          p_action?: string;
+        };
+        Returns: Json;
+      };
+      rpc_locker_device_poll: {
+        Args: {
+          p_device_id: string;
+          p_device_secret: string;
+          p_firmware_version?: string | null;
+        };
+        Returns: Json;
+      };
+      rpc_locker_device_ack: {
+        Args: {
+          p_device_id: string;
+          p_device_secret: string;
+          p_command_id: string;
+          p_success: boolean;
+          p_message?: string | null;
+        };
+        Returns: Json;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
