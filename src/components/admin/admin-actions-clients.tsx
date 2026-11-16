@@ -13,6 +13,7 @@ import {
   adminToggleReviewVisibilityAction,
   adminRegisterLockerDeviceAction,
   adminQueueLockerCommandAction,
+  adminSetLockerDeviceEnabledAction,
 } from "@/features/admin/admin-actions";
 
 export function AdminPagination({
@@ -348,11 +349,23 @@ export function AdminReviewVisibilityButton({
 export function AdminLockerHardwareControls({
   compartmentId,
   compartmentCode,
+  hardwareDevice,
 }: {
   compartmentId: string;
   compartmentCode: string;
+  hardwareDevice?: {
+    deviceId: string;
+    enabled: boolean;
+    connectionStatus: "ONLINE" | "OFFLINE" | "DISABLED";
+    lastSeenAt: string | null;
+    firmwareVersion: string | null;
+    pendingCommands: number;
+  } | null;
 }) {
-  const [deviceId, setDeviceId] = useState(`EDULOCKER-${compartmentCode}`);
+  const router = useRouter();
+  const [deviceId, setDeviceId] = useState(
+    hardwareDevice?.deviceId ?? `EDULOCKER-${compartmentCode}`,
+  );
   const [deviceSecret, setDeviceSecret] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -374,6 +387,7 @@ export function AdminLockerHardwareControls({
       setMessage(
         "Ghép thiết bị thành công. Hãy chép Device ID và Device Secret vào firmware ESP32.",
       );
+      router.refresh();
     });
   };
 
@@ -390,14 +404,83 @@ export function AdminLockerHardwareControls({
           ? "Đã gửi lệnh mở. ESP32 sẽ nhận ở lần poll kế tiếp."
           : "Đã gửi lệnh đóng. ESP32 sẽ nhận ở lần poll kế tiếp.",
       );
+      router.refresh();
     });
   };
 
+  const toggleDevice = () => {
+    if (!hardwareDevice) return;
+    setMessage(null);
+    startTransition(async () => {
+      const nextEnabled = !hardwareDevice.enabled;
+      const res = await adminSetLockerDeviceEnabledAction(
+        hardwareDevice.deviceId,
+        nextEnabled,
+      );
+      if (!res.success) {
+        setMessage(res.error ?? "Không thể cập nhật trạng thái ESP32.");
+        return;
+      }
+      setMessage(
+        nextEnabled
+          ? "Đã bật ESP32 cho ngăn này."
+          : "Đã tắt ESP32. Ngăn sẽ tiếp tục chạy theo simulator.",
+      );
+      router.refresh();
+    });
+  };
+
+  const statusLabel = !hardwareDevice
+    ? "CHƯA GHÉP"
+    : hardwareDevice.connectionStatus === "ONLINE"
+      ? "ONLINE"
+      : hardwareDevice.connectionStatus === "DISABLED"
+        ? "ĐANG TẮT"
+        : "OFFLINE";
+
+  const statusClass = !hardwareDevice
+    ? "border-slate-200 bg-slate-50 text-slate-500"
+    : hardwareDevice.connectionStatus === "ONLINE"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : hardwareDevice.connectionStatus === "DISABLED"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-rose-200 bg-rose-50 text-rose-700";
+
+  const canSendHardwareCommand =
+    hardwareDevice?.enabled === true &&
+    hardwareDevice.connectionStatus === "ONLINE";
+
   return (
     <div className="mt-3 space-y-2 rounded-xl border border-dashed border-brand-blue/30 bg-white p-3">
-      <p className="text-[11px] font-bold text-brand-navy">
-        ESP32 vật lý • {compartmentCode}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] font-bold text-brand-navy">
+          ESP32 vật lý • {compartmentCode}
+        </p>
+        <span
+          className={`rounded-full border px-2 py-0.5 text-[9px] font-extrabold tracking-wide ${statusClass}`}
+        >
+          {statusLabel}
+        </span>
+      </div>
+
+      {hardwareDevice && (
+        <div className="rounded-lg bg-slate-50 p-2 text-[10px] leading-relaxed text-slate-600">
+          <p>
+            Device: <code className="font-mono">{hardwareDevice.deviceId}</code>
+          </p>
+          <p>
+            Firmware: {hardwareDevice.firmwareVersion ?? "Chưa ghi nhận"} • Lệnh chờ:{" "}
+            {hardwareDevice.pendingCommands}
+          </p>
+          <p>
+            Heartbeat:{" "}
+            {hardwareDevice.lastSeenAt
+              ? new Date(hardwareDevice.lastSeenAt).toLocaleString("vi-VN")
+              : "Chưa từng kết nối"}
+          </p>
+        </div>
+      )}
+
       <input
         type="text"
         value={deviceId}
@@ -406,6 +489,7 @@ export function AdminLockerHardwareControls({
         className="h-8 w-full rounded-lg border border-slate-200 px-2.5 font-mono text-[11px]"
         disabled={isPending}
       />
+
       <div className="flex flex-wrap gap-1.5">
         <Button
           type="button"
@@ -414,12 +498,30 @@ export function AdminLockerHardwareControls({
           disabled={isPending || deviceId.trim().length < 3}
           onClick={pairDevice}
         >
-          Ghép / đổi mã ESP32
+          {hardwareDevice ? "Đổi mã ESP32" : "Ghép ESP32"}
         </Button>
+
+        {hardwareDevice && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={isPending}
+            onClick={toggleDevice}
+          >
+            {hardwareDevice.enabled ? "Tắt ESP32" : "Bật ESP32"}
+          </Button>
+        )}
+
         <Button
           type="button"
           size="sm"
-          disabled={isPending}
+          disabled={isPending || !canSendHardwareCommand}
+          title={
+            canSendHardwareCommand
+              ? undefined
+              : "Chỉ gửi lệnh khi ESP32 đang bật và ONLINE"
+          }
           onClick={() => sendCommand("OPEN")}
         >
           Test mở tủ
@@ -428,12 +530,35 @@ export function AdminLockerHardwareControls({
           type="button"
           size="sm"
           variant="outline"
-          disabled={isPending}
+          disabled={isPending || !canSendHardwareCommand}
+          title={
+            canSendHardwareCommand
+              ? undefined
+              : "Chỉ gửi lệnh khi ESP32 đang bật và ONLINE"
+          }
           onClick={() => sendCommand("CLOSE")}
         >
           Test đóng tủ
         </Button>
       </div>
+
+      {!hardwareDevice && (
+        <p className="text-[10px] leading-relaxed text-slate-500">
+          Chưa ghép phần cứng: ngăn này đang hoạt động hoàn toàn bằng Smart Locker Simulator.
+        </p>
+      )}
+
+      {hardwareDevice?.connectionStatus === "DISABLED" && (
+        <p className="text-[10px] leading-relaxed text-amber-700">
+          ESP32 đang tắt. Luồng giao dịch vẫn dùng simulator và không yêu cầu heartbeat.
+        </p>
+      )}
+
+      {hardwareDevice?.connectionStatus === "OFFLINE" && (
+        <p className="text-[10px] leading-relaxed text-rose-700">
+          ESP32 đã bật nhưng chưa có heartbeat trong 15 giây gần nhất. Không nên dùng luồng tủ vật lý cho tới khi thiết bị online.
+        </p>
+      )}
 
       {deviceSecret && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[10px] text-amber-900">
