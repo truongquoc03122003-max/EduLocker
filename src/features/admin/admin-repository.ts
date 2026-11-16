@@ -347,17 +347,76 @@ export async function fetchAdminLockers(): Promise<{
     status: string;
     reservedAt: string;
   }>;
+  hardwareDevices: Array<{
+    deviceId: string;
+    compartmentId: string;
+    compartmentCode: string;
+    label: string | null;
+    enabled: boolean;
+    connectionStatus: "ONLINE" | "OFFLINE" | "DISABLED";
+    lastSeenAt: string | null;
+    firmwareVersion: string | null;
+    lastCommandAt: string | null;
+    lastAckAt: string | null;
+    pendingCommands: number;
+  }>;
 }> {
   const supabase = await createSupabaseServerClient();
   const locations = await fetchLiveLockerLocations();
-  if (!supabase) return { locations, activeReservations: [] };
+  if (!supabase) {
+    return { locations, activeReservations: [], hardwareDevices: [] };
+  }
 
-  const { data: reservations } = await supabase
-    .from("locker_reservations")
-    .select("*")
-    .in("status", ["ACTIVE", "USED"])
-    .order("reserved_at", { ascending: false })
-    .limit(50);
+  const [{ data: reservations }, { data: hardwareData }] = await Promise.all([
+    supabase
+      .from("locker_reservations")
+      .select("*")
+      .in("status", ["ACTIVE", "USED"])
+      .order("reserved_at", { ascending: false })
+      .limit(50),
+    supabase.rpc("rpc_admin_list_locker_devices"),
+  ]);
+
+  const hardwarePayload =
+    hardwareData && typeof hardwareData === "object" && !Array.isArray(hardwareData)
+      ? (hardwareData as Record<string, unknown>)
+      : null;
+  const rawDevices = Array.isArray(hardwarePayload?.devices)
+    ? hardwarePayload.devices
+    : [];
+
+  const hardwareDevices = rawDevices.flatMap((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+    const row = item as Record<string, unknown>;
+    if (
+      typeof row.device_id !== "string" ||
+      typeof row.compartment_id !== "string" ||
+      typeof row.compartment_code !== "string"
+    ) {
+      return [];
+    }
+
+    const rawStatus = row.connection_status;
+    const connectionStatus: "ONLINE" | "OFFLINE" | "DISABLED" =
+      rawStatus === "ONLINE" || rawStatus === "DISABLED" ? rawStatus : "OFFLINE";
+
+    return [{
+      deviceId: row.device_id,
+      compartmentId: row.compartment_id,
+      compartmentCode: row.compartment_code,
+      label: typeof row.label === "string" ? row.label : null,
+      enabled: row.enabled === true,
+      connectionStatus,
+      lastSeenAt: typeof row.last_seen_at === "string" ? row.last_seen_at : null,
+      firmwareVersion:
+        typeof row.firmware_version === "string" ? row.firmware_version : null,
+      lastCommandAt:
+        typeof row.last_command_at === "string" ? row.last_command_at : null,
+      lastAckAt: typeof row.last_ack_at === "string" ? row.last_ack_at : null,
+      pendingCommands:
+        typeof row.pending_commands === "number" ? row.pending_commands : 0,
+    }];
+  });
 
   return {
     locations,
@@ -368,6 +427,7 @@ export async function fetchAdminLockers(): Promise<{
       status: r.status,
       reservedAt: r.reserved_at,
     })),
+    hardwareDevices,
   };
 }
 
