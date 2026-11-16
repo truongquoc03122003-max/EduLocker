@@ -1288,6 +1288,17 @@ export type Database = {
         };
         Returns: Json;
       };
+      rpc_admin_list_locker_devices: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      rpc_admin_set_locker_device_enabled: {
+        Args: {
+          p_device_id: string;
+          p_enabled: boolean;
+        };
+        Returns: Json;
+      };
       rpc_locker_device_poll: {
         Args: {
           p_device_id: string;
