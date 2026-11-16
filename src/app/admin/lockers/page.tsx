@@ -9,9 +9,13 @@ import { fetchAdminLockers } from "@/features/admin/admin-repository";
 export const dynamic = "force-dynamic";
 
 export default async function AdminLockersPage() {
-  const { locations, activeReservations } = await fetchAdminLockers();
+  const { locations, activeReservations, hardwareDevices } =
+    await fetchAdminLockers();
   const resByComp = new Map(
     activeReservations.map((r) => [r.compartmentId, r]),
+  );
+  const hardwareByComp = new Map(
+    hardwareDevices.map((d) => [d.compartmentId, d]),
   );
 
   return (
@@ -78,6 +82,7 @@ export default async function AdminLockersPage() {
                     <AdminLockerHardwareControls
                       compartmentId={comp.id}
                       compartmentCode={comp.code}
+                      hardwareDevice={hardwareByComp.get(comp.id) ?? null}
                     />
                   </div>
                 </div>
