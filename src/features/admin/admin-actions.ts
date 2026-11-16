@@ -326,3 +326,55 @@ export async function adminQueueLockerCommandAction(
         : undefined,
   };
 }
+
+
+export async function adminSetLockerDeviceEnabledAction(
+  deviceId: string,
+  enabled: boolean,
+): Promise<{ success: boolean; error?: string }> {
+  const admin = await requireActiveAdmin();
+  if (!admin) {
+    return {
+      success: false,
+      error: "Chỉ quản trị viên đang hoạt động mới có quyền này (403).",
+    };
+  }
+
+  const cleanDeviceId = deviceId.trim().toUpperCase();
+  if (!cleanDeviceId) {
+    return { success: false, error: "Device ID không hợp lệ." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { success: false, error: "Chưa cấu hình Supabase." };
+
+  const { data, error } = await supabase.rpc(
+    "rpc_admin_set_locker_device_enabled",
+    {
+      p_device_id: cleanDeviceId,
+      p_enabled: enabled,
+    },
+  );
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  const payload =
+    data && typeof data === "object" && !Array.isArray(data)
+      ? (data as Record<string, unknown>)
+      : null;
+
+  if (payload?.success !== true) {
+    return {
+      success: false,
+      error:
+        typeof payload?.message === "string"
+          ? payload.message
+          : "Không thể cập nhật trạng thái ESP32.",
+    };
+  }
+
+  revalidatePath("/admin/lockers");
+  return { success: true };
+}
